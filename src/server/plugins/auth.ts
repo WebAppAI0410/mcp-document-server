@@ -1,7 +1,8 @@
-import { FastifyInstance, FastifyRequest } from 'fastify';
+import { FastifyInstance, FastifyRequest, FastifyPluginAsync } from 'fastify';
+import fp from 'fastify-plugin';
 import { config } from '../../config';
 
-export async function authPlugin(app: FastifyInstance) {
+const authPluginAsync: FastifyPluginAsync = async (app: FastifyInstance) => {
   app.addHook('onRequest', async (request: FastifyRequest, reply) => {
     // Skip auth for health check
     if (request.url === '/healthz') {
@@ -25,10 +26,12 @@ export async function authPlugin(app: FastifyInstance) {
     const token = authHeader?.replace('Bearer ', '');
 
     if (!config.auth.token || token !== config.auth.token) {
-      reply.code(401).send({ error: 'Unauthorized' });
+      await reply.code(401).send({ error: 'Unauthorized' });
     }
   });
-}
+};
+
+export const authPlugin = fp(authPluginAsync);
 
 function isRequestFromLocalhost(request: FastifyRequest): boolean {
   const forwarded = request.headers['x-forwarded-for'];

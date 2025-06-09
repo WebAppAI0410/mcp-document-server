@@ -4,7 +4,7 @@ import { Command } from 'commander';
 import { DocumentScraper } from '../services/scraper';
 import { getPresetForUrl, getPresetByName } from '../services/scraper-presets';
 import { EmbeddingService, EmbeddingProvider } from '../services/embeddings';
-import { VectorStore, MockVectorStore } from '../services/vector-store';
+import { VectorStoreFactory } from '../services/vector-store-factory';
 import { config } from '../config';
 import { logger } from '../utils/logger';
 import PQueue from 'p-queue';
@@ -25,9 +25,15 @@ program
   .option('-r, --recursive', 'Recursively scrape linked pages')
   .option('-m, --max-pages <number>', 'Maximum pages to scrape', '100')
   .option('--dry-run', 'Preview what would be scraped without saving')
-  .action(async (packageName: string, version: string, url: string, options) => {
+  .action(async (packageName: string, version: string, url: string, options: {
+    preset?: string;
+    sitemap?: string;
+    recursive?: boolean;
+    maxPages: string;
+    dryRun?: boolean;
+  }) => {
     try {
-      logger.info(`Adding documentation source for ${packageName}@${version}`);
+      void logger.info(`Adding documentation source for ${packageName}@${version}`);
 
       const scraper = new DocumentScraper();
       const embeddingService = new EmbeddingService({
@@ -36,8 +42,7 @@ program
       });
 
       // Initialize vector store
-      const vectorStore = new MockVectorStore(); // TODO: Use real vector store based on config
-      await vectorStore.initialize();
+      const vectorStore = await VectorStoreFactory.create();
 
       const queue = new PQueue({ concurrency: config.performance.maxConcurrentEmbeddings });
 
@@ -45,9 +50,9 @@ program
 
       // Collect URLs to scrape
       if (options.sitemap) {
-        logger.info(`Fetching sitemap from ${options.sitemap}`);
+        void logger.info(`Fetching sitemap from ${options.sitemap}`);
         urls = await scraper.scrapeSitemap(options.sitemap);
-        logger.info(`Found ${urls.length} URLs in sitemap`);
+        void logger.info(`Found ${urls.length} URLs in sitemap`);
       } else if (options.recursive) {
         // TODO: Implement recursive scraping
         urls = [url];
@@ -58,13 +63,16 @@ program
       // Limit pages
       const maxPages = parseInt(options.maxPages, 10);
       if (urls.length > maxPages) {
-        logger.warn(`Limiting to ${maxPages} pages (found ${urls.length})`);
+        void logger.warn(`Limiting to ${maxPages} pages (found ${urls.length}`);
         urls = urls.slice(0, maxPages);
       }
 
       if (options.dryRun) {
-        logger.info('Dry run mode - URLs that would be scraped:');
-        urls.forEach(u => console.log(`  - ${u}`));
+        void logger.info('Dry run mode - URLs that would be scraped:');
+        urls.forEach(u => { 
+          // eslint-disable-next-line no-console
+          console.log(`  - ${u}`); 
+        });
         return;
       }
 
@@ -75,7 +83,7 @@ program
       for (const pageUrl of urls) {
         await queue.add(async () => {
           try {
-            logger.info(`Scraping ${pageUrl} (${processed + 1}/${urls.length})`);
+            void logger.info(`Scraping ${pageUrl} (${processed + 1}/${urls.length}`);
 
             // Determine preset
             const preset = options.preset
@@ -127,7 +135,7 @@ program
 
             processed++;
           } catch (error) {
-            logger.error(`Failed to process ${pageUrl}: ${error}`);
+            void logger.error(`Failed to process ${pageUrl}: ${error instanceof Error ? error.message : String(error)}`);
             errors.push({
               url: pageUrl,
               error: error instanceof Error ? error.message : String(error),
@@ -138,18 +146,18 @@ program
 
       await queue.onIdle();
 
-      logger.info(`Completed: ${processed} pages processed, ${errors.length} errors`);
+      void logger.info(`Completed: ${processed} pages processed, ${errors.length} errors`);
 
       if (errors.length > 0) {
-        logger.error('Errors encountered:');
+        void logger.error('Errors encountered:');
         errors.forEach(({ url, error }) => {
-          logger.error(`  - ${url}: ${error}`);
+          void logger.error(`  - ${url}: ${error}`);
         });
       }
 
       await vectorStore.close();
     } catch (error) {
-      logger.error('Failed to add source:', error);
+      void logger.error('Failed to add source:', error);
       process.exit(1);
     }
   });

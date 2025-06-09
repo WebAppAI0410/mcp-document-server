@@ -7,21 +7,25 @@ import {
   ListVersionsResponse 
 } from '../../types/mcp';
 import { DocumentService } from '../../services/document-service';
-import { MockVectorStore } from '../../services/vector-store';
+import { VectorStoreFactory } from '../../services/vector-store-factory';
 
-const vectorStore = new MockVectorStore();
-const documentService = new DocumentService(vectorStore);
+let documentService: DocumentService;
 
 export async function mcpRoutes(app: FastifyInstance) {
+  // Initialize document service with vector store
+  if (!documentService) {
+    const vectorStore = await VectorStoreFactory.create();
+    documentService = new DocumentService(vectorStore);
+  }
   // Get available tools
-  app.get<{ Reply: MCPToolsResponse }>('/tools', async (request, reply) => {
-    return {
+  app.get<{ Reply: MCPToolsResponse }>('/tools', async (_request, _reply) => {
+    const response: MCPToolsResponse = {
       tools: [
         {
           name: 'query-docs',
           description: 'Search documentation for a specific library version',
           inputSchema: {
-            type: 'object',
+            type: 'object' as const,
             properties: {
               library: {
                 type: 'string',
@@ -53,7 +57,7 @@ export async function mcpRoutes(app: FastifyInstance) {
           name: 'list-packages',
           description: 'List all available packages with their versions',
           inputSchema: {
-            type: 'object',
+            type: 'object' as const,
             properties: {},
           },
         },
@@ -61,7 +65,7 @@ export async function mcpRoutes(app: FastifyInstance) {
           name: 'list-versions',
           description: 'List all versions for a specific package',
           inputSchema: {
-            type: 'object',
+            type: 'object' as const,
             properties: {
               package: {
                 type: 'string',
@@ -73,6 +77,7 @@ export async function mcpRoutes(app: FastifyInstance) {
         },
       ],
     };
+    return response;
   });
 
   // Query documents
@@ -90,12 +95,12 @@ export async function mcpRoutes(app: FastifyInstance) {
         required: ['library', 'version', 'question'],
       },
     },
-  }, async (request, reply) => {
+  }, async (request, _reply) => {
     return documentService.queryDocuments(request.body);
   });
 
   // List packages
-  app.get<{ Reply: ListPackagesResponse }>('/packages', async (request, reply) => {
+  app.get<{ Reply: ListPackagesResponse }>('/packages', async (_request, _reply) => {
     return documentService.listPackages();
   });
 
@@ -108,7 +113,8 @@ export async function mcpRoutes(app: FastifyInstance) {
       return await documentService.listVersions(request.params.package);
     } catch (error) {
       if (error instanceof Error && error.message === 'Package not found') {
-        reply.code(404).send({ error: 'Package not found' });
+        void reply.code(404);
+        throw new Error('Package not found');
       } else {
         throw error;
       }

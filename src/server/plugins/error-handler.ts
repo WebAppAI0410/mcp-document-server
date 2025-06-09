@@ -1,6 +1,7 @@
-import { FastifyInstance, FastifyError } from 'fastify';
+import { FastifyInstance, FastifyError, FastifyPluginAsync } from 'fastify';
+import fp from 'fastify-plugin';
 
-export async function errorHandler(app: FastifyInstance) {
+const errorHandlerAsync: FastifyPluginAsync = async (app: FastifyInstance) => {
   app.setErrorHandler((error: FastifyError, request, reply) => {
     const statusCode = error.statusCode || 500;
     
@@ -15,15 +16,17 @@ export async function errorHandler(app: FastifyInstance) {
     });
 
     if (statusCode >= 500) {
-      reply.status(statusCode).send({
+      void reply.status(statusCode).send({
         error: 'Internal Server Error',
         message: 'An unexpected error occurred',
       });
     } else {
-      reply.status(statusCode).send({
+      void reply.status(statusCode).send({
         error: error.name || 'Error',
         message: error.message,
       });
     }
   });
-}
+};
+
+export const errorHandler = fp(errorHandlerAsync);

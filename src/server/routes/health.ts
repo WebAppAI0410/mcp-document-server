@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 
-export async function healthRoutes(app: FastifyInstance) {
-  app.get('/healthz', async (request, reply) => {
+export function healthRoutes(app: FastifyInstance) {
+  app.get('/healthz', (_request, _reply) => {
     const uptime = process.uptime();
     const memoryUsage = process.memoryUsage();
 

@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio';
+import { Element } from 'domhandler';
 import TurndownService from 'turndown';
 import { ScraperPreset } from './scraper-presets';
 
@@ -38,11 +39,20 @@ export class DocumentScraper {
     });
 
     // Configure turndown for better code block handling
+    interface TurndownNode {
+      textContent?: string | null;
+      [key: string]: unknown;
+    }
+    
     this.turndown.addRule('codeBlock', {
       filter: ['pre'],
-      replacement: (content, node) => {
-        const code = node.textContent || '';
-        const lang = this.extractLanguage(node as any);
+      replacement: (_content, node) => {
+        if (!node || typeof node !== 'object') {
+          return '';
+        }
+        const turndownNode = node as TurndownNode;
+        const code = turndownNode.textContent || '';
+        const lang = this.extractLanguage(node as unknown as Element);
         return `\n\`\`\`${lang}\n${code}\n\`\`\`\n`;
       },
     });
@@ -145,14 +155,14 @@ export class DocumentScraper {
     const chunks: DocumentChunk[] = [];
     const sections = this.splitIntoSections(content);
 
-    sections.forEach((section, sectionIndex) => {
+    sections.forEach((section, _sectionIndex) => {
       const sectionChunks = this.chunkText(
         section.content,
         options.maxChunkSize,
         options.overlap
       );
 
-      sectionChunks.forEach((chunk, chunkIndex) => {
+      sectionChunks.forEach((chunk, _chunkIndex) => {
         chunks.push({
           content: chunk,
           metadata: {
@@ -208,7 +218,6 @@ export class DocumentScraper {
     const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
     
     let currentChunk = '';
-    let previousChunk = '';
 
     for (const sentence of sentences) {
       if (currentChunk.length + sentence.length > maxChunkSize && currentChunk) {
@@ -216,7 +225,6 @@ export class DocumentScraper {
         
         // Add overlap from the end of the previous chunk
         const overlapText = this.getOverlapText(currentChunk, overlap);
-        previousChunk = currentChunk;
         currentChunk = overlapText + sentence;
       } else {
         currentChunk += sentence;
@@ -252,8 +260,24 @@ export class DocumentScraper {
     return lastPart;
   }
 
-  private extractLanguage(node: any): string {
-    const className = node.attribs?.class || '';
+  private extractLanguage(node: Element): string {
+    interface NodeWithAttribs {
+      attribs?: {
+        class?: string;
+        'data-language'?: string;
+        [key: string]: string | undefined;
+      };
+      children?: Array<{
+        name: string;
+        attribs?: {
+          class?: string;
+          [key: string]: string | undefined;
+        };
+      }>;
+    }
+    
+    const nodeWithAttribs = node as unknown as NodeWithAttribs;
+    const className = nodeWithAttribs.attribs?.class || '';
     const langMatch = className.match(/language-(\w+)/);
     
     if (langMatch) {
@@ -261,13 +285,13 @@ export class DocumentScraper {
     }
 
     // Check for data attributes
-    const dataLang = node.attribs?.['data-language'];
+    const dataLang = nodeWithAttribs.attribs?.['data-language'];
     if (dataLang) {
       return dataLang;
     }
 
     // Check code element inside pre
-    const codeElement = node.children?.find((child: any) => child.name === 'code');
+    const codeElement = nodeWithAttribs.children?.find((child) => child.name === 'code');
     if (codeElement?.attribs?.class) {
       const codeLangMatch = codeElement.attribs.class.match(/language-(\w+)/);
       if (codeLangMatch) {

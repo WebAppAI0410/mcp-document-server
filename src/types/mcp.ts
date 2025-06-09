@@ -1,9 +1,20 @@
+export interface MCPToolProperty {
+  type: string;
+  description?: string;
+  enum?: string[];
+  items?: MCPToolProperty;
+  properties?: Record<string, MCPToolProperty>;
+  required?: string[];
+  default?: unknown;
+  [key: string]: unknown;
+}
+
 export interface MCPTool {
   name: string;
   description: string;
   inputSchema: {
     type: 'object';
-    properties: Record<string, any>;
+    properties: Record<string, MCPToolProperty>;
     required?: string[];
   };
 }

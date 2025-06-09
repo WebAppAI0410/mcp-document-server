@@ -16,22 +16,22 @@ export function build(opts: FastifyServerOptions = {}): FastifyInstance {
   });
 
   // Register plugins
-  app.register(helmet);
-  app.register(cors, {
+  void app.register(helmet);
+  void app.register(cors, {
     origin: config.server.nodeEnv === 'production' ? false : true,
   });
-  app.register(rateLimit, {
+  void app.register(rateLimit, {
     max: config.rateLimit.max,
     timeWindow: config.rateLimit.timeWindow,
   });
 
   // Custom plugins
-  app.register(authPlugin);
-  app.register(errorHandler);
+  void app.register(authPlugin);
+  void app.register(errorHandler);
 
   // Routes
-  app.register(mcpRoutes, { prefix: '/v1' });
-  app.register(healthRoutes);
+  void app.register(mcpRoutes, { prefix: '/v1' });
+  void app.register(healthRoutes);
 
   return app;
 }

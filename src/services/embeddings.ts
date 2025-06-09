@@ -52,7 +52,7 @@ export class EmbeddingService {
     } else if (this.provider === EmbeddingProvider.OLLAMA) {
       return this.batchEmbedOllama(texts);
     }
-    throw new Error(`Unsupported provider: ${this.provider}`);
+    throw new Error(`Unsupported provider: ${this.provider as string}`);
   }
 
   private async embedSingle(text: string): Promise<number[]> {
@@ -76,11 +76,11 @@ export class EmbeddingService {
         throw new Error(`Ollama embedding failed: ${response.statusText}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as { embedding: number[] };
       return data.embedding;
     }
 
-    throw new Error(`Unsupported provider: ${this.provider}`);
+    throw new Error(`Unsupported provider: ${this.provider as string}`);
   }
 
   private async batchEmbedOpenAI(texts: string[]): Promise<number[][]> {
@@ -135,7 +135,7 @@ export class EmbeddingService {
     }
 
     const dimension = embeddings[0].length;
-    const averaged = new Array(dimension).fill(0);
+    const averaged = new Array<number>(dimension).fill(0);
 
     for (const embedding of embeddings) {
       for (let i = 0; i < dimension; i++) {

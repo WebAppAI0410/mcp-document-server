@@ -1,0 +1,11 @@
+node_modules
+dist
+coverage
+build
+*.js
+*.d.ts
+*.config.js
+jest.config.js
+**/*.test.ts
+**/*.spec.ts
+src/__tests__

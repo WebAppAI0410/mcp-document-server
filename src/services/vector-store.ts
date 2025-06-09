@@ -1,5 +1,8 @@
 import { DocumentResult, PackageInfo, VersionInfo } from '../types/mcp';
 
+// Re-export types from mcp for convenience
+export { DocumentResult, PackageInfo, VersionInfo } from '../types/mcp';
+
 export interface SearchOptions {
   query: string;
   filter?: {
@@ -36,19 +39,22 @@ export abstract class VectorStore {
 export class MockVectorStore extends VectorStore {
   private documents: VectorDocument[] = [];
 
-  async initialize(): Promise<void> {
+  initialize(): Promise<void> {
     // Mock initialization
+    return Promise.resolve();
   }
 
-  async addDocument(doc: VectorDocument): Promise<void> {
+  addDocument(doc: VectorDocument): Promise<void> {
     this.documents.push(doc);
+    return Promise.resolve();
   }
 
-  async addDocuments(docs: VectorDocument[]): Promise<void> {
+  addDocuments(docs: VectorDocument[]): Promise<void> {
     this.documents.push(...docs);
+    return Promise.resolve();
   }
 
-  async search(options: SearchOptions): Promise<DocumentResult[]> {
+  search(options: SearchOptions): Promise<DocumentResult[]> {
     let filtered = this.documents;
 
     if (options.filter?.package) {
@@ -71,10 +77,10 @@ export class MockVectorStore extends VectorStore {
       .sort((a, b) => b.score - a.score)
       .slice(0, options.limit || 5);
 
-    return results;
+    return Promise.resolve(results);
   }
 
-  async listPackages(): Promise<PackageInfo[]> {
+  listPackages(): Promise<PackageInfo[]> {
     const packageMap = new Map<string, Set<string>>();
 
     for (const doc of this.documents) {
@@ -84,14 +90,14 @@ export class MockVectorStore extends VectorStore {
       packageMap.get(doc.metadata.package)!.add(doc.metadata.version);
     }
 
-    return Array.from(packageMap.entries()).map(([name, versions]) => ({
+    return Promise.resolve(Array.from(packageMap.entries()).map(([name, versions]) => ({
       name,
       versions: Array.from(versions).sort(),
       last_updated: new Date().toISOString(),
-    }));
+    })));
   }
 
-  async listVersions(packageName: string): Promise<VersionInfo[]> {
+  listVersions(packageName: string): Promise<VersionInfo[]> {
     const versions = new Map<string, number>();
 
     for (const doc of this.documents) {
@@ -102,24 +108,26 @@ export class MockVectorStore extends VectorStore {
     }
 
     if (versions.size === 0) {
-      throw new Error('Package not found');
+      return Promise.reject(new Error('Package not found'));
     }
 
-    return Array.from(versions.entries()).map(([version, doc_count]) => ({
+    return Promise.resolve(Array.from(versions.entries()).map(([version, doc_count]) => ({
       version,
       release_date: new Date().toISOString(),
       doc_count,
       last_indexed: new Date().toISOString(),
-    }));
+    })));
   }
 
-  async deletePackageVersion(packageName: string, version: string): Promise<void> {
+  deletePackageVersion(packageName: string, version: string): Promise<void> {
     this.documents = this.documents.filter(
       doc => !(doc.metadata.package === packageName && doc.metadata.version === version)
     );
+    return Promise.resolve();
   }
 
-  async close(): Promise<void> {
+  close(): Promise<void> {
     // Mock close
+    return Promise.resolve();
   }
 }
