@@ -1,0 +1,72 @@
+name: Documentation Update Check
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  check-updates:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Set up environment
+        run: |
+          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> $GITHUB_ENV
+          echo "DB_TYPE=sqlite" >> $GITHUB_ENV
+      
+      - name: Check for documentation updates
+        run: |
+          # Check Next.js releases
+          LATEST_NEXT=$(npm view next version)
+          echo "Latest Next.js version: $LATEST_NEXT"
+          
+          # Check React releases
+          LATEST_REACT=$(npm view react version)
+          echo "Latest React version: $LATEST_REACT"
+          
+          # Check other packages
+          PACKAGES=(
+            "react-native"
+            "@clerk/nextjs"
+            "stripe"
+            "expo"
+          )
+          
+          for pkg in "${PACKAGES[@]}"; do
+            LATEST=$(npm view "$pkg" version 2>/dev/null || echo "N/A")
+            echo "Latest $pkg version: $LATEST"
+          done
+      
+      - name: Create issue for updates
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['documentation-update'],
+              state: 'open'
+            });
+            
+            if (issues.data.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: 'Documentation Update Check - ' + new Date().toISOString().split('T')[0],
+                body: 'Please check for new documentation versions and update the server.',
+                labels: ['documentation-update', 'automated']
+              });
+            }

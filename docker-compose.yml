@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mcp-document-server
+    ports:
+      - "6111:6111"
+    environment:
+      - NODE_ENV=production
+      - PORT=6111
+      - HOST=0.0.0.0
+      - AUTH_TOKEN=${AUTH_TOKEN:-development-token}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DB_TYPE=postgres
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=mcp_docs
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - LOG_LEVEL=info
+    volumes:
+      - ./logs:/app/logs
+      - ./raw_docs:/app/raw_docs
+      - vector_data:/app/vector_data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - mcp-network
+
+  postgres:
+    image: ankane/pgvector:v0.5.1
+    container_name: mcp-postgres
+    environment:
+      - POSTGRES_DB=mcp_docs
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - mcp-network
+
+  # Optional: Qdrant for larger deployments
+  # qdrant:
+  #   image: qdrant/qdrant:latest
+  #   container_name: mcp-qdrant
+  #   ports:
+  #     - "6333:6333"
+  #   volumes:
+  #     - qdrant_data:/qdrant/storage
+  #   restart: unless-stopped
+  #   networks:
+  #     - mcp-network
+
+  # Optional: Ollama for offline embeddings
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: mcp-ollama
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   restart: unless-stopped
+  #   networks:
+  #     - mcp-network
+
+volumes:
+  postgres_data:
+  vector_data:
+  # qdrant_data:
+  # ollama_data:
+
+networks:
+  mcp-network:
+    driver: bridge
